@@ -138,7 +138,8 @@ app.launch({
         var files = Array.prototype.concat.apply([], filesArr);
 
         return Promise.settle(
-            files.map(lintFile)
+            files.filter(file => { return !file.includes('node_modules'); }).map(lintFile)
+
         );
     }, function (err) {
         console.error(chalk.red.bold('error during glob expansion:'), err);
