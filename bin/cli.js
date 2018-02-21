@@ -25,7 +25,6 @@ var argv = require('yargs')
             'Lints html files with htmllint.',
             'Usage: $0 [OPTIONS] [ARGS]'
         ].join('\n'))
-        .version(require('../package.json').version + '\n', 'version')
         .example('$0', 'lints all html files in the cwd and all child directories')
         .example('$0 init', 'creates a default .htmllintrc in the cwd')
         .example('$0 *.html', 'lints all html files in the cwd')
@@ -34,7 +33,6 @@ var argv = require('yargs')
         .describe('rc', 'path to a htmllintrc file to use (json)')
         .default('cwd', null)
         .describe('cwd', 'path to use for the current working directory')
-        .help('help')
         .argv;
 
 var args = argv._;
@@ -44,25 +42,6 @@ app.launch({
     configPath: argv.rc
 }, function (env) {
     var cwd = argv.cwd || process.cwd();
-
-    if (args[0] === 'init') {
-        // copy .htmllintrc file
-        var srcPath = path.join(__dirname, '../lib/default_cfg.json'),
-            outputPath = path.join(env.cwd, '.htmllintrc');
-
-        var readStream = fs.createReadStream(srcPath);
-        readStream.on('error', function (err) {
-            console.error('error reading default config file: ', err);
-        });
-
-        var writeStream = fs.createWriteStream(outputPath);
-        writeStream.on('error', function (err) {
-            console.error('error writing config file: ', err);
-        });
-
-        readStream.pipe(writeStream);
-        return;
-    }
 
     var htmllintPath = 'htmllint';
 
@@ -86,6 +65,24 @@ app.launch({
 
     var htmllint = require(htmllintPath);
 
+    if (args[0] === 'init') {
+        // copy .htmllintrc file
+        var srcPath = path.join(__dirname, '../lib/default_cfg.json'),
+            outputPath = path.join(env.cwd, '.htmllintrc');
+
+        var opts = htmllint.Linter.getOptions('default'),
+            config = JSON.stringify(opts, null, 4);
+        config = '{\n    "plugins": [],  // npm modules to load\n'
+               + config.slice(1);
+
+        fs.writeFile(outputPath, config, function (err) {
+            if (err) {
+                console.error('error writing config file: ', err);
+            }
+        });
+        return;
+    }
+
     if (!env.configPath) {
         console.log(
             chalk.red('local .htmllintrc file not found'),
@@ -104,7 +101,7 @@ app.launch({
     }
 
     function lintFile(filename) {
-        var filepath = path.join(cwd, filename);
+        var filepath = path.resolve(cwd, filename);
 
         return readFilePromise(filepath, 'utf8')
             .then(function (src) {
